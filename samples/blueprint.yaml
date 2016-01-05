@@ -1,0 +1,45 @@
+tosca_definitions_version: cloudify_dsl_1_2
+
+imports:
+  - http://www.getcloudify.org/spec/cloudify/3.3/types.yaml
+  - https://raw.githubusercontent.com/cloudify-cosmo/cloudify-psutil-plugin/master/plugin.yaml
+
+inputs:
+  ip:
+    description: IP of the machine
+  port:
+    description: Port on which WinRM server is listening
+  user:
+    description: User used to install the agents
+  password:
+    description: Password used to install the agents
+
+node_templates:
+  vm:
+    type: cloudify.nodes.Compute
+    properties:
+      ip: { get_input: ip }
+      agent_config:
+        install_method: remote
+        port: { get_input: port }
+        user: { get_input: user }
+        password: { get_input: password }
+      os_family: windows
+    interfaces:
+      cloudify.interfaces.monitoring:
+        start:
+          implementation: psutil.psutil_agent.tasks.start
+          inputs:
+            psutil_config:
+              - method: virtual_memory
+                result_argument: free
+                interval: 5
+                alias: memory_MemFree
+              - method: cpu_times_percent
+                args:
+                  interval: 1
+                  percpu: false
+                interval: 5
+                result_argument: user
+                alias: cpu_total_user
+        stop: psutil.psutil_agent.tasks.stop
