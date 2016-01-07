@@ -3,28 +3,29 @@ tosca_definitions_version: cloudify_dsl_1_2
 imports:
   - http://www.getcloudify.org/spec/cloudify/3.3/types.yaml
   - http://www.getcloudify.org/spec/psutil-plugin/1.0/plugin.yaml
+  - http://www.getcloudify.org/spec/aws-plugin/1.3.1/plugin.yaml
 
 inputs:
-  ip:
-    description: IP of the machine
-  port:
-    description: Port on which WinRM server is listening
+  image_id:
+    description: ID of the image used to create the machine
+  instance_type:
+    description: ID of the instance type used to create the machine
   user:
     description: User used to install the agents
-  password:
-    description: Password used to install the agents
 
 node_templates:
   vm:
-    type: cloudify.nodes.Compute
+    type: cloudify.aws.nodes.WindowsInstance
     properties:
-      ip: { get_input: ip }
       agent_config:
-        install_method: remote
-        port: { get_input: port }
         user: { get_input: user }
-        password: { get_input: password }
-      os_family: windows
+      image_id: { get_input: image_id }
+      instance_type: { get_input: instance_type }
+      parameters:
+        user_data: |
+          <powershell>
+          &netsh advfirewall firewall add rule name="WinRM 5985" protocol=TCP dir=in localport=5985 action=allow
+          </powershell>
     interfaces:
       cloudify.interfaces.monitoring:
         start:
