@@ -27,7 +27,8 @@ from cloudify_agent.api.utils import get_absolute_resource_path
 
 NSSM_EXE = get_absolute_resource_path(os.path.join('pm', 'nssm', 'nssm.exe'))
 PSUTIL_SERVICE = 'cloudify-psutil'
-LOOP_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'loop.py')
+LOOP_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                         'loop.py')
 
 
 @operation
@@ -61,7 +62,8 @@ def start(ctx, psutil_config, **kwargs):
     psutil_config = ['"{0}"'.format(
             json.dumps(a).replace('"', '\\"')) for a in psutil_config]
 
-    nssm_args = [NSSM_EXE, 'install', PSUTIL_SERVICE, sys.executable, LOOP_FILE]
+    nssm_args = [NSSM_EXE, 'install', PSUTIL_SERVICE, sys.executable,
+                 LOOP_FILE]
 
     install_service_command = (nssm_args + rabbit_config + log_dir +
                                psutil_config)
