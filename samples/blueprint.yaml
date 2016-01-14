@@ -42,4 +42,11 @@ node_templates:
                 interval: 5
                 result_argument: user
                 alias: cpu_total_user
+              - method: cpu_times_percent
+                args:
+                  interval: 1
+                  percpu: false
+                interval: 5
+                result_argument: system
+                alias: cpu_total_system
         stop: psutil.psutil_agent.tasks.stop
