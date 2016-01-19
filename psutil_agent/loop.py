@@ -115,6 +115,14 @@ def collect_metrics(rabbit_config, log_dir, psutil_config):
 
             scheduled_fun()
 
+        if 'method' not in config:
+            logging.error("Method wasn't passed. Ignoring metric...")
+            continue
+
+        if 'interval' not in config:
+            logging.error("Interval wasn't passed. Ignoring metric...")
+            continue
+
         create_scheduled_fun(config['method'], config['interval'],
                              config.get('args', {}),
                              config.get('result_argument', None),
