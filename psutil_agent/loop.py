@@ -26,11 +26,7 @@ import psutil
 from pika.exceptions import AMQPError
 
 
-def collect_metrics(rabbit_config, log_dir, psutil_config):
-    logging.basicConfig(filename=os.path.join(log_dir, 'psutil.log'))
-
-    scheduler = sched.scheduler(time.time, time.sleep)
-
+def get_channel(rabbit_config):
     credentials = pika.PlainCredentials(rabbit_config['broker_user'],
                                         rabbit_config['broker_pass'])
 
@@ -47,74 +43,90 @@ def collect_metrics(rabbit_config, log_dir, psutil_config):
                              durable=False,
                              internal=False)
 
-    for config in psutil_config:
-        def create_scheduled_fun(method, interval, f_args, result_argument,
-                                 alias):
-            try:
-                fun = getattr(psutil, method)
-            except AttributeError as e:
-                logging.error('Retrieving a psutil function failed: {0} {1}'
-                              .format(type(e).__name__, e))
-                return
+    return channel
 
-            def scheduled_fun():
+
+def prepare_data(rabbit_config, name, result):
+    service_elements = [
+        rabbit_config['deployment_id'],
+        rabbit_config['node_name'],
+        rabbit_config['node_id'],
+        name
+    ]
+
+    return {
+        'node_id': rabbit_config['node_id'],
+        'node_name': rabbit_config['node_name'],
+        'deployment_id': rabbit_config['deployment_id'],
+        'name': name,
+        'path': '',
+        'metric': result,
+        'unit': '',
+        'type': 'GAUGE',
+        'host': rabbit_config['node_id'],
+        'service': '.'.join(service_elements),
+        'time': int(time.time()),
+    }
+
+
+def publish_data(rabbit_config, alias, method, result):
+    metric_data = prepare_data(rabbit_config, alias or method, result)
+    channel = get_channel(rabbit_config)
+
+    try:
+        channel.basic_publish(
+                exchange='cloudify-monitoring',
+                routing_key=rabbit_config['deployment_id'],
+                body=json.dumps(metric_data))
+    except AMQPError as e:
+        logging.error('Publishing metrics failed: {0} {1}'
+                      .format(type(e).__name__, e))
+
+
+def create_scheduled_fun(rabbit_config, scheduler, method, interval,
+                         f_args, result_argument, alias):
+    try:
+        fun = getattr(psutil, method)
+    except AttributeError as e:
+        logging.error('Retrieving a psutil function failed: {0} {1}'
+                      .format(type(e).__name__, e))
+        return
+
+    def scheduled_fun():
+        try:
+            result = fun(**f_args)
+        except TypeError as e:
+            logging.error(
+                    'Invoking a psutil function failed: {0} {1}'
+                    .format(type(e).__name__, e))
+            return
+        except Exception as e:
+            logging.error(
+                    'Invoking a psutil function failed: {0} {1}'
+                    .format(type(e).__name__, e))
+            result = None
+
+        if result:
+            if result_argument:
                 try:
-                    result = fun(**f_args)
-                except TypeError as e:
-                    logging.error(
-                            'Invoking a psutil function failed: {0} {1}'
-                            .format(type(e).__name__, e))
+                    result = getattr(result, result_argument)
+                except AttributeError as e:
+                    logging.error('Retrieving an argument from '
+                                  'result failed: {0} {1}'
+                                  .format(type(e).__name__, e))
                     return
-                except Exception as e:
-                    logging.error(
-                            'Invoking a psutil function failed: {0} {1}'
-                            .format(type(e).__name__, e))
-                    result = None
 
-                if result:
-                    if result_argument:
-                        try:
-                            result = getattr(result, result_argument)
-                        except AttributeError as e:
-                            logging.error('Retrieving an argument from '
-                                          'result failed: {0} {1}'
-                                          .format(type(e).__name__, e))
-                            return
+            publish_data(rabbit_config, alias, method, result)
 
-                    service_elements = [
-                        rabbit_config['deployment_id'],
-                        rabbit_config['node_name'],
-                        rabbit_config['node_id'],
-                        alias or method
-                    ]
+        scheduler.enter(interval, 1, scheduled_fun, ())
 
-                    metric_data = {
-                        'node_id': rabbit_config['node_id'],
-                        'node_name': rabbit_config['node_name'],
-                        'deployment_id': rabbit_config['deployment_id'],
-                        'name': alias or method,
-                        'path': '',
-                        'metric': result,
-                        'unit': '',
-                        'type': 'GAUGE',
-                        'host': rabbit_config['node_id'],
-                        'service': '.'.join(service_elements),
-                        'time': int(time.time()),
-                    }
+    scheduled_fun()
 
-                    try:
-                        channel.basic_publish(
-                                exchange='cloudify-monitoring',
-                                routing_key=rabbit_config['deployment_id'],
-                                body=json.dumps(metric_data))
-                    except AMQPError as e:
-                        logging.error('Publishing metrics failed: {0} {1}'
-                                      .format(type(e).__name__, e))
 
-                scheduler.enter(interval, 1, scheduled_fun, ())
+def collect_metrics(rabbit_config, psutil_config):
+    scheduler = sched.scheduler(time.time, time.sleep)
 
-            scheduled_fun()
-
+    for config in psutil_config:
         if 'method' not in config:
             logging.error("Method wasn't passed. Ignoring metric...")
             continue
@@ -123,7 +135,8 @@ def collect_metrics(rabbit_config, log_dir, psutil_config):
             logging.error("Interval wasn't passed. Ignoring metric...")
             continue
 
-        create_scheduled_fun(config['method'], config['interval'],
+        create_scheduled_fun(rabbit_config, scheduler,
+                             config['method'], config['interval'],
                              config.get('args', {}),
                              config.get('result_argument', None),
                              config.get('alias', None))
@@ -131,6 +144,14 @@ def collect_metrics(rabbit_config, log_dir, psutil_config):
     scheduler.run()
 
 
-if __name__ == '__main__':
+def main():
     args = [json.loads(a.replace('\\"', '"')) for a in sys.argv[1:]]
-    collect_metrics(args[0], args[1], args[2:])
+    rabbit_config, log_dir, psutil_config = args[0], args[1], args[2:]
+
+    logging.basicConfig(filename=os.path.join(log_dir, 'psutil.log'))
+
+    collect_metrics(rabbit_config, psutil_config)
+
+
+if __name__ == '__main__':
+    main()
