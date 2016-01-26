@@ -1,5 +1,6 @@
 plugins:
     psutil:
         executor: host_agent
+        source: https://github.com/cloudify-cosmo/cloudify-psutil-plugin/archive/1.0.1.zip
         package_name: cloudify-psutil-plugin
         package_version: '1.0.1'
