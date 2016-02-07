@@ -19,8 +19,9 @@ import time
 from influxdb import InfluxDBClient
 from influxdb.client import InfluxDBClientError
 
-from cosmo_tester.framework.git_helper import clone
 from cosmo_tester.framework.testenv import TestCase
+
+import psutil_agent
 
 PSUTIL_PLUGIN_URL = 'https://github.com/cloudify-cosmo/cloudify-psutil-plugin'
 
@@ -28,7 +29,7 @@ PSUTIL_PLUGIN_URL = 'https://github.com/cloudify-cosmo/cloudify-psutil-plugin'
 class PsutilPluginTest(TestCase):
     def setUp(self):
         super(PsutilPluginTest, self).setUp()
-        self.repo_dir = clone(PSUTIL_PLUGIN_URL, self.workdir)
+        self.repo_dir = os.path.dirname(os.path.dirname(psutil_agent.__file__))
         self.blueprint_yaml = os.path.join(self.repo_dir, 'samples',
                                            'blueprint.yaml')
 
