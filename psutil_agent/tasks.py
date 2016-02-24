@@ -62,10 +62,12 @@ def start(ctx, psutil_config, **kwargs):
     psutil_config = ['"{0}"'.format(
             json.dumps(a).replace('"', '\\"')) for a in psutil_config]
 
+    paths = ['"{0}"'.format(json.dumps(sys.path).replace('"', '\\"'))]
+
     nssm_args = [NSSM_EXE, 'install', PSUTIL_SERVICE, sys.executable,
                  LOOP_FILE]
 
-    install_service_command = (nssm_args + rabbit_config + log_dir +
+    install_service_command = (nssm_args + rabbit_config + log_dir + paths +
                                psutil_config)
 
     subprocess.call(install_service_command)
