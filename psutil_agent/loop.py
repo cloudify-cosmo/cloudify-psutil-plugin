@@ -21,9 +21,12 @@ import sched
 import sys
 import time
 
-import pika
-import psutil
-from pika.exceptions import AMQPError
+try:
+    import pika
+    import psutil
+    from pika.exceptions import AMQPError
+except ImportError:
+    pass
 
 
 def get_channel(rabbit_config):
@@ -144,14 +147,19 @@ def collect_metrics(rabbit_config, psutil_config):
     scheduler.run()
 
 
-def main():
+if __name__ == '__main__':
     args = [json.loads(a.replace('\\"', '"')) for a in sys.argv[1:]]
-    rabbit_config, log_dir, psutil_config = args[0], args[1], args[2:]
+    rabbit_config, log_dir, paths, psutil_config = (args[0], args[1], args[2],
+                                                    args[3:])
+
+    for path in paths:
+        if path not in sys.argv:
+            sys.path.append(path)
+
+    import pika  # noqa
+    import psutil  # noqa
+    from pika.exceptions import AMQPError  # noqa
 
     logging.basicConfig(filename=os.path.join(log_dir, 'psutil.log'))
 
     collect_metrics(rabbit_config, psutil_config)
-
-
-if __name__ == '__main__':
-    main()
