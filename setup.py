@@ -18,7 +18,7 @@ from setuptools import setup
 
 setup(
     name='cloudify-psutil-plugin',
-    version='1.0.1',
+    version='1.0.2',
     author='Cloudify',
     author_email='cosmo-admin@gigaspaces.com',
     description='Cloudify psutil monitoring plugin for Windows',
