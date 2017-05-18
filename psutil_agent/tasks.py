@@ -33,7 +33,7 @@ LOOP_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)),
 
 @operation
 def start(ctx, psutil_config, **kwargs):
-    broker_user, broker_pass = utils.internal.get_broker_credentials(
+    broker_user, broker_pass, _ = utils.internal.get_broker_credentials(
             ctx.bootstrap_context.cloudify_agent)
 
     broker_port, ssl_options = utils.internal.get_broker_ssl_and_port(
